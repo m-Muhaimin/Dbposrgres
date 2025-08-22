@@ -82,7 +82,7 @@ export class AIHealthcareService {
       );
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "deepseek-chat",
         messages: [
           {
             role: "system",
@@ -118,7 +118,7 @@ export class AIHealthcareService {
   async generateClinicalSummary(patientId: string, data: any): Promise<string> {
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "deepseek-chat",
         messages: [
           {
             role: "system",

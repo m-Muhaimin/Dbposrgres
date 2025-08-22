@@ -201,6 +201,9 @@ export class MemStorage implements IStorage {
     const patient: Patient = {
       ...insertPatient,
       id,
+      room: insertPatient.room || null,
+      admissionDate: insertPatient.admissionDate || null,
+      status: insertPatient.status || "active",
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -236,6 +239,13 @@ export class MemStorage implements IStorage {
     const vitals: VitalSigns = {
       ...insertVitals,
       id,
+      heartRate: insertVitals.heartRate || null,
+      systolicBP: insertVitals.systolicBP || null,
+      diastolicBP: insertVitals.diastolicBP || null,
+      temperature: insertVitals.temperature || null,
+      respiratoryRate: insertVitals.respiratoryRate || null,
+      oxygenSaturation: insertVitals.oxygenSaturation || null,
+      recordedBy: insertVitals.recordedBy || null,
       timestamp: new Date()
     };
     this.vitalSigns.set(id, vitals);
@@ -261,6 +271,11 @@ export class MemStorage implements IStorage {
     const labResult: LabResult = {
       ...insertLabResult,
       id,
+      unit: insertLabResult.unit || null,
+      referenceRange: insertLabResult.referenceRange || null,
+      orderedBy: insertLabResult.orderedBy || null,
+      reviewedBy: insertLabResult.reviewedBy || null,
+      reviewedAt: insertLabResult.reviewedAt || null,
       completedAt: new Date()
     };
     this.labResults.set(id, labResult);
@@ -289,6 +304,9 @@ export class MemStorage implements IStorage {
     const alert: Alert = {
       ...insertAlert,
       id,
+      isActive: insertAlert.isActive ?? true,
+      acknowledgedBy: insertAlert.acknowledgedBy || null,
+      acknowledgedAt: insertAlert.acknowledgedAt || null,
       createdAt: new Date()
     };
     this.alerts.set(id, alert);
@@ -322,6 +340,10 @@ export class MemStorage implements IStorage {
     const insight: AiInsight = {
       ...insertInsight,
       id,
+      patientId: insertInsight.patientId || null,
+      confidence: insertInsight.confidence || null,
+      data: insertInsight.data || null,
+      expiresAt: insertInsight.expiresAt || null,
       createdAt: new Date()
     };
     this.aiInsights.set(id, insight);
