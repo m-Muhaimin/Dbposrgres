@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Edit, Plus, User, Calendar, MapPin, Activity } from "lucide-react";
+import { Trash2, Edit, Plus, User, Calendar, MapPin, Activity, Upload, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtime } from "@/hooks/use-realtime";
 import { Navigation } from "@/components/ui/navigation";
@@ -40,6 +40,8 @@ export default function PatientManagement() {
   const [formData, setFormData] = useState<PatientFormData>(initialFormData);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -123,6 +125,41 @@ export default function PatientManagement() {
     },
   });
 
+  const bulkImportMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/patients/bulk-import', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to import patients');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setIsBulkImportDialogOpen(false);
+      toast({ 
+        title: "Bulk import successful", 
+        description: `Imported ${data.imported} patients successfully. ${data.failed > 0 ? `${data.failed} failed.` : ''}` 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Bulk import failed", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -167,6 +204,37 @@ export default function PatientManagement() {
     setIsDialogOpen(true);
   };
 
+  const handleDischarge = (patientId: string) => {
+    dischargePatientMutation.mutate(patientId);
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['.csv', '.sql'];
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    
+    if (!allowedTypes.includes(fileExtension)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a CSV or SQL file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsImporting(true);
+    bulkImportMutation.mutate(file, {
+      onSettled: () => {
+        setIsImporting(false);
+        // Reset file input
+        event.target.value = '';
+      }
+    });
+  };
+
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString();
   };
@@ -200,16 +268,60 @@ export default function PatientManagement() {
   return (
     <div className="min-h-screen bg-clinical-white">
       <Navigation currentPath="/patients" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex justify-between items-center mb-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Patient Management</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleCreate} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add New Patient
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Bulk Import
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Bulk Import Patients</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600">
+                  Upload a CSV or SQL file to import multiple patients at once.
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bulk-file">Select File</Label>
+                  <Input
+                    id="bulk-file"
+                    type="file"
+                    accept=".csv,.sql"
+                    onChange={handleFileImport}
+                    disabled={isImporting}
+                    data-testid="input-bulk-import-file"
+                  />
+                  {isImporting && (
+                    <div className="text-sm text-blue-600 flex items-center gap-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                      Importing patients...
+                    </div>
+                  )}
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                  <div className="font-medium mb-2">Expected format:</div>
+                  <div className="text-gray-600">
+                    <strong>CSV:</strong> firstName,lastName,dateOfBirth,gender,medicalRecordNumber,room,status
+                    <br />
+                    <strong>SQL:</strong> INSERT statements for patients table
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={handleCreate} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Patient
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
@@ -399,6 +511,7 @@ export default function PatientManagement() {
           </CardContent>
         </Card>
       )}
+        </div>
       </div>
     </div>
   );

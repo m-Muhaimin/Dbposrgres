@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import multer from "multer";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -10,12 +11,21 @@ import {
 } from "@shared/schema";
 import { aiHealthcareService } from "./services/ai-healthcare";
 import { initializeRealtimeService } from "./services/realtime";
+import { parseCsvFile, parseSqlFile, type ImportResult } from "./bulk-import";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Initialize real-time service
   const realtimeService = initializeRealtimeService(httpServer);
+
+  // Configure multer for file uploads
+  const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+    }
+  });
 
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
@@ -99,6 +109,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Patient update error:", error);
       res.status(400).json({ 
         error: "Failed to update patient",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/patients/bulk-import", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const fileExtension = '.' + req.file.originalname.split('.').pop()?.toLowerCase();
+      let parseResult;
+
+      if (fileExtension === '.csv') {
+        parseResult = await parseCsvFile(req.file.buffer);
+      } else if (fileExtension === '.sql') {
+        const fileContent = req.file.buffer.toString('utf-8');
+        parseResult = parseSqlFile(fileContent);
+      } else {
+        return res.status(400).json({ error: "Unsupported file type. Only CSV and SQL files are allowed." });
+      }
+
+      const { patients, errors } = parseResult;
+      let imported = 0;
+      let failed = 0;
+      const importErrors: string[] = [...errors];
+
+      // Import each patient
+      for (const patientData of patients) {
+        try {
+          const patient = await storage.createPatient(patientData);
+          imported++;
+          
+          // Broadcast real-time update for each patient
+          realtimeService.broadcastPatientUpdate(patient);
+        } catch (error) {
+          failed++;
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          importErrors.push(`Failed to import patient ${patientData.firstName} ${patientData.lastName}: ${errorMsg}`);
+        }
+      }
+
+      const result: ImportResult = {
+        imported,
+        failed,
+        errors: importErrors
+      };
+
+      if (imported === 0) {
+        return res.status(400).json({ 
+          error: "No patients were imported", 
+          ...result 
+        });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Bulk import error:", error);
+      res.status(500).json({ 
+        error: "Bulk import failed",
         details: error instanceof Error ? error.message : "Unknown error"
       });
     }
