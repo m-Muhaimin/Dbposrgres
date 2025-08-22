@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "./use-toast";
 
 export interface RealtimeMessage {
-  type: "vitals_update" | "lab_result" | "alert" | "ai_insight" | "system_status";
+  type: "vitals_update" | "lab_result" | "alert" | "ai_insight" | "system_status" | "patient_update";
   data: any;
   timestamp: string;
   patientId?: string;
@@ -40,6 +40,11 @@ export function useRealtime() {
             const message: RealtimeMessage = JSON.parse(event.data);
             setLastMessage(message);
             
+            // Dispatch a custom event for other components to listen to
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('realtime-message', { detail: message }));
+            }
+            
             // Handle different message types
             switch (message.type) {
               case "alert":
@@ -70,6 +75,9 @@ export function useRealtime() {
                     description: message.data.title,
                   });
                 }
+                break;
+              case "patient_update":
+                // Patient data updated
                 break;
             }
           } catch (error) {

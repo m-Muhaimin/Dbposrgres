@@ -3,7 +3,7 @@ import type { Server } from "http";
 import type { VitalSigns, LabResult, Alert } from "@shared/schema";
 
 export interface RealtimeMessage {
-  type: "vitals_update" | "lab_result" | "alert" | "ai_insight" | "system_status";
+  type: "vitals_update" | "lab_result" | "alert" | "ai_insight" | "system_status" | "patient_update";
   data: any;
   timestamp: string;
   patientId?: string;
@@ -75,6 +75,15 @@ export class RealtimeService {
       data: insight,
       timestamp: new Date().toISOString(),
       patientId: insight.patientId
+    });
+  }
+
+  broadcastPatientUpdate(patient: any) {
+    this.broadcast({
+      type: "patient_update",
+      data: patient,
+      timestamp: new Date().toISOString(),
+      patientId: patient.id
     });
   }
 

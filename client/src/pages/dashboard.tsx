@@ -27,9 +27,9 @@ export default function Dashboard() {
                 <button className="px-3 py-2 rounded-md text-sm font-medium text-medical-blue bg-blue-50 border border-blue-200">
                   Dashboard
                 </button>
-                <button className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-medical-blue hover:bg-gray-50">
+                <a href="/patients" className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-medical-blue hover:bg-gray-50">
                   Patients
-                </button>
+                </a>
                 <button className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-medical-blue hover:bg-gray-50">
                   Analytics
                 </button>

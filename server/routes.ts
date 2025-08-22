@@ -53,9 +53,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertPatientSchema.parse(req.body);
       const patient = await storage.createPatient(validatedData);
+      
+      // Broadcast real-time update
+      realtimeService.broadcastPatientUpdate(patient);
+      
       res.status(201).json(patient);
     } catch (error) {
       res.status(400).json({ error: "Invalid patient data" });
+    }
+  });
+
+  app.put("/api/patients/:id", async (req, res) => {
+    try {
+      const validatedData = insertPatientSchema.parse(req.body);
+      const patient = await storage.updatePatient(req.params.id, validatedData);
+      
+      // Broadcast real-time update
+      realtimeService.broadcastPatientUpdate(patient);
+      
+      res.json(patient);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update patient" });
+    }
+  });
+
+  app.delete("/api/patients/:id", async (req, res) => {
+    try {
+      const patient = await storage.getPatient(req.params.id);
+      if (!patient) {
+        return res.status(404).json({ error: "Patient not found" });
+      }
+      
+      // Mark as discharged instead of deleting
+      const updatedPatient = await storage.updatePatient(req.params.id, { status: "discharged" });
+      
+      // Broadcast real-time update
+      realtimeService.broadcastPatientUpdate(updatedPatient);
+      
+      res.json({ message: "Patient marked as discharged" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to discharge patient" });
     }
   });
 
