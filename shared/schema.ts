@@ -73,6 +73,15 @@ export const insertPatientSchema = createInsertSchema(patients).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  dateOfBirth: z.union([z.string(), z.date()]).transform((val) => {
+    if (typeof val === 'string') return new Date(val);
+    return val;
+  }),
+  admissionDate: z.union([z.string(), z.date(), z.null()]).transform((val) => {
+    if (typeof val === 'string') return new Date(val);
+    return val;
+  }).optional().nullable(),
 });
 
 export const insertVitalSignsSchema = createInsertSchema(vitalSigns).omit({

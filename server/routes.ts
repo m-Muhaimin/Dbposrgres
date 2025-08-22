@@ -51,21 +51,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/patients", async (req, res) => {
     try {
-      const validatedData = insertPatientSchema.parse(req.body);
+      console.log("Received patient data:", req.body);
+      
+      // Transform date strings to Date objects
+      const patientData = {
+        ...req.body,
+        dateOfBirth: new Date(req.body.dateOfBirth),
+        admissionDate: req.body.admissionDate ? new Date(req.body.admissionDate) : null
+      };
+      
+      const validatedData = insertPatientSchema.parse(patientData);
+      console.log("Validated patient data:", validatedData);
+      
       const patient = await storage.createPatient(validatedData);
+      console.log("Created patient:", patient);
       
       // Broadcast real-time update
       realtimeService.broadcastPatientUpdate(patient);
       
       res.status(201).json(patient);
     } catch (error) {
-      res.status(400).json({ error: "Invalid patient data" });
+      console.error("Patient creation error:", error);
+      res.status(400).json({ 
+        error: "Invalid patient data",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
   app.put("/api/patients/:id", async (req, res) => {
     try {
-      const validatedData = insertPatientSchema.parse(req.body);
+      // Transform date strings to Date objects
+      const patientData = {
+        ...req.body,
+        dateOfBirth: new Date(req.body.dateOfBirth),
+        admissionDate: req.body.admissionDate ? new Date(req.body.admissionDate) : null
+      };
+      
+      const validatedData = insertPatientSchema.parse(patientData);
       const patient = await storage.updatePatient(req.params.id, validatedData);
       
       // Broadcast real-time update
@@ -73,7 +96,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(patient);
     } catch (error) {
-      res.status(400).json({ error: "Failed to update patient" });
+      console.error("Patient update error:", error);
+      res.status(400).json({ 
+        error: "Failed to update patient",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
